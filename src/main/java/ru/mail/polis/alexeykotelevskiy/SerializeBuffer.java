@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.nio.ByteBuffer;
-
 import org.jetbrains.annotations.NotNull;
 
 public class SerializeBuffer implements Externalizable, Comparable<SerializeBuffer> {

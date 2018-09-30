@@ -3,8 +3,6 @@ package ru.mail.polis.alexeykotelevskiy;
 import one.nio.http.*;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
-
-import java.io.File;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
@@ -67,6 +65,5 @@ public class KvServiceImpl extends HttpServer implements KVService {
         } catch (IOException e){
             session.sendError(Response.INTERNAL_ERROR, "Internal error");
         }
-
     }
 }
