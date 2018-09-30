@@ -15,8 +15,7 @@ public class IdGenerator {
     /**
      * File in which the next available id is stored.
      */
-    public static File FILE = new File(BTree.DIR + "id");
-
+    public static File FILE;
     /**
      * Return the next available id number.
      */

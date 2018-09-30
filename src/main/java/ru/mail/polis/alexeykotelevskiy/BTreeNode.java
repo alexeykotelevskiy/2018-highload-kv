@@ -12,11 +12,15 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
     public ArrayList<V> values;
     private ArrayList<Integer> children;
     private int id;
+    private String dir;
 
-    public BTreeNode() {
+    public BTreeNode(){}
+    public BTreeNode(String dir) {
+        this.dir = dir;
     }
 
-    public BTreeNode(boolean leaf) {
+    public BTreeNode(boolean leaf, String dir) {
+        this.dir = dir;
         this.id = IdGenerator.nextId();
         data = new ArrayList<K>((HALF_MAX * 2) - 1);
         values = new ArrayList<V>((HALF_MAX * 2) - 1);
@@ -25,8 +29,8 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
         }
     }
 
-    public BTreeNode(BTreeNode<K, V> child) {
-        this(false);
+    public BTreeNode(BTreeNode<K, V> child, String dir) {
+        this(false, dir);
         children.add(child.getId());
         splitChild(0, child);
     }
@@ -83,7 +87,7 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
     }
 
     protected BTreeNode createRightSibling() {
-        BTreeNode<K, V> sibling = new BTreeNode<K, V>(isLeaf());
+        BTreeNode<K, V> sibling = new BTreeNode<K, V>(isLeaf(), dir);
         for (int i = HALF_MAX; i < (HALF_MAX * 2) - 1; i++) {
             sibling.data.add(data.remove(HALF_MAX));
             sibling.values.add(values.remove(HALF_MAX));
@@ -99,7 +103,7 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
 
     public void deleteFromDisk() {
         try {
-            File file = new File(BTree.DIR + "b" + id + ".node");
+            File file = new File(dir + "b" + id + ".node");
             file.delete();
         } catch (Exception e) {
             e.printStackTrace();
@@ -153,11 +157,10 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
         sibling.deleteFromDisk();
     }
 
-    public static <K extends Comparable<? super K>, V> BTreeNode<K, V> readFromDisk(int id) {
+    public <K extends Comparable<? super K>, V> BTreeNode<K, V> readFromDisk(int id) {
         try {
-            ObjectInputStream in
-                    = new ObjectInputStream
-                    (new FileInputStream(BTree.DIR + "b" + id + ".node"));
+            ObjectInputStream in = new ObjectInputStream(
+                    new FileInputStream(dir + "b" + id + ".node"));
             BTreeNode<K, V> bTreeNode = (BTreeNode<K, V>) (in.readObject());
             in.close();
             return bTreeNode;
@@ -330,10 +333,9 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
 
     public void writeToDisk() {
         try {
-            ObjectOutputStream out
-                    = new ObjectOutputStream
-                    (new FileOutputStream(BTree.DIR + "b" + id + ".node"));
-            out.writeObject((BTreeNode<K, V>) this);
+            ObjectOutputStream out = new ObjectOutputStream(
+                    new FileOutputStream(dir + "b" + id + ".node"));
+            out.writeObject(this);
             out.close();
         } catch (Exception e) {
             e.printStackTrace();
@@ -347,6 +349,7 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
         out.writeObject(values);
         out.writeObject(children);
         out.writeInt(id);
+        out.writeObject(dir);
     }
 
     @Override
@@ -355,5 +358,6 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
         values = (ArrayList<V>) in.readObject();
         children = (ArrayList<Integer>) in.readObject();
         id = in.readInt();
+        dir = (String)in.readObject();
     }
 }

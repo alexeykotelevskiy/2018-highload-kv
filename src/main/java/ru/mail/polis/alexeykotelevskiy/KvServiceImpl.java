@@ -19,31 +19,31 @@ public class KvServiceImpl extends HttpServer implements KVService {
             return Response.ok(value);
         } catch (NoSuchElementException e)
         {
-            return new Response(Response.NOT_FOUND, "".getBytes());
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
 
     Response putData(byte[] key, byte[] value) throws IOException{
         kvDao.upsert(key, value);
-        Response response = new Response(Response.CREATED, "".getBytes());
+        Response response = new Response(Response.CREATED, Response.EMPTY);
         return response;
     }
 
     Response deleteData(byte[] key) throws IOException{
         kvDao.remove(key);
-        Response response = new Response(Response.ACCEPTED, "".getBytes());
+        Response response = new Response(Response.ACCEPTED, Response.EMPTY);
         return response;
     }
 
     @Path("/v0/status")
     public Response status(Request request){
-        return Response.ok("");
+        return Response.ok(Response.EMPTY);
     }
 
     @Path("/v0/entity")
     public void apiPoint(Request request, HttpSession session) throws IOException{
         String strKey = request.getParameter("id=");
-        if ( strKey.isEmpty())
+        if (strKey==null || strKey.isEmpty())
         {
             session.sendError(Response.BAD_REQUEST, "Bad Request");
             return;
