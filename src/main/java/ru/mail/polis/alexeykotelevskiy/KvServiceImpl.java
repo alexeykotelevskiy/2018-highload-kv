@@ -60,7 +60,8 @@ public class KvServiceImpl extends HttpServer implements KVService {
                 case Request.METHOD_DELETE:
                     session.sendResponse(deleteData(key));
                     return;
-                    default: session.sendError(Response.BAD_REQUEST, "Unsupported method");
+                default:
+                    session.sendError(Response.BAD_REQUEST, "Unsupported method");
             }
         } catch (IOException e){
             session.sendError(Response.INTERNAL_ERROR, "Internal error");
