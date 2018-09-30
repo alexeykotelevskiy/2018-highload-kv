@@ -43,7 +43,7 @@ public class KvServiceImpl extends HttpServer implements KVService {
     @Path("/v0/entity")
     public void apiPoint(Request request, HttpSession session) throws IOException{
         String strKey = request.getParameter("id=");
-        if ( strKey.equals(""))
+        if ( strKey.isEmpty())
         {
             session.sendError(Response.BAD_REQUEST, "Bad Request");
             return;
