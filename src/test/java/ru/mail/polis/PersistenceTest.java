@@ -16,34 +16,34 @@
 
 package ru.mail.polis;
 
-import org.junit.Test;
+
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 
 /**
  * Persistence tests for {@link KVDao} implementations
  *
  * @author Vadim Tsesko <incubos@yandex.com>
  */
-public class PersistenceTest extends TestBase {
-    @Test(expected = NoSuchElementException.class)
-    public void fs() throws IOException {
+class PersistenceTest extends TestBase {
+    @Test()
+    void fs() throws IOException {
         // Reference key
         final byte[] key = randomKey();
 
         // Create, fill and remove storage
         final File data = Files.createTempDirectory();
-        try {
-            final KVDao dao = KVDaoFactory.create(data);
+        try (final KVDao dao = KVDaoFactory.create(data)) {
             dao.upsert(key, randomValue());
-            dao.close();
         } finally {
             Files.recursiveDelete(data);
         }
@@ -51,30 +51,25 @@ public class PersistenceTest extends TestBase {
         // Check that the storage is empty
         assertFalse(data.exists());
         assertTrue(data.mkdir());
-        try {
-            final KVDao dao = KVDaoFactory.create(data);
-            dao.get(key);
-            fail();
+        try(final KVDao dao = KVDaoFactory.create(data)) {
+            assertThrows(NoSuchElementException.class, () -> dao.get(key));
         } finally {
             Files.recursiveDelete(data);
         }
     }
 
     @Test
-    public void reopen() throws IOException {
+    void reopen() throws IOException {
         // Reference value
         final byte[] key = randomKey();
         final byte[] value = randomValue();
-
         final File data = Files.createTempDirectory();
-        try {
+        try (KVDao dao = KVDaoFactory.create(data)) {
             // Create, fill and close storage
-            KVDao dao = KVDaoFactory.create(data);
             dao.upsert(key, value);
-            dao.close();
-
-            // Recreate dao
-            dao = KVDaoFactory.create(data);
+        }
+        // Recreate dao
+        try (KVDao dao = KVDaoFactory.create(data)) {
             assertArrayEquals(value, dao.get(key));
         } finally {
             Files.recursiveDelete(data);

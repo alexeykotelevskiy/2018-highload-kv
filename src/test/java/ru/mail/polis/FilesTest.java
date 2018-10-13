@@ -16,22 +16,23 @@
 
 package ru.mail.polis;
 
-import org.junit.Test;
+
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit tests for {@link Files} facilities
  *
  * @author Vadim Tsesko <mail@incubos.org>
  */
-public class FilesTest {
+class FilesTest {
     @Test
-    public void createRemove() throws IOException {
+    void createRemove() throws IOException {
         final File dir = Files.createTempDirectory();
         assertTrue(dir.exists());
         assertTrue(dir.isDirectory());
