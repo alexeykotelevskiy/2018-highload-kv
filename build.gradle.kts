@@ -22,8 +22,8 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.3.1")
 
     // Guava for tests
- "com.google.guava:guava:23.1-jre")
-}   testCompile(
+    testCompile("com.google.guava:guava:23.1-jre")
+}
 
 tasks {
     "test"(Test::class) {
