@@ -145,7 +145,7 @@ public class KvServiceImpl extends HttpServer implements KVService {
                 ack++;
             } else {
                 try {
-                    if (client.put(makePath(API_POINT, key), value, NEED_REPL_HEADER + " 1").getStatus() == 201) {
+                    if (client.put(makePath(API_POINT, key), value, NEED_REPL_HEADER + ": 1").getStatus() == 201) {
                         ack++;
                     }
                 } catch (Exception e) {
@@ -169,7 +169,7 @@ public class KvServiceImpl extends HttpServer implements KVService {
                 ack++;
             } else {
                 try {
-                    if (client.delete(makePath(API_POINT, key), NEED_REPL_HEADER + " 1").getStatus() == 202) {
+                    if (client.delete(makePath(API_POINT, key), NEED_REPL_HEADER + ": 1").getStatus() == 202) {
                         ack++;
                     }
                 } catch (Exception e) {
