@@ -24,7 +24,7 @@ public class BTree<K extends Comparable<? super K>, V> implements Serializable {
         createStruct();
     }
 
-    public void add(K key, V value) {
+    public synchronized void add(K key, V value) {
         BTreeNode<K, V> root = new BTreeNode<>(dir).readFromDisk(rootId);
         if (root.isFull()) {
             BTreeNode<K, V> parent = new BTreeNode<K, V>(root, dir);
@@ -65,10 +65,9 @@ public class BTree<K extends Comparable<? super K>, V> implements Serializable {
     }
 
     public static <K extends Comparable<? super K>, V> BTree<K, V> readFromDisk(String path) {
-        try {
-            ObjectInputStream in = new ObjectInputStream(new FileInputStream(path));
+
+        try(ObjectInputStream in = new ObjectInputStream(new FileInputStream(path))) {
             BTree<K, V> a = (BTree<K, V>) (in.readObject());
-            in.close();
             return a;
         } catch (Exception e) {
             e.printStackTrace();
@@ -77,7 +76,7 @@ public class BTree<K extends Comparable<? super K>, V> implements Serializable {
         }
     }
 
-    public void remove(K key) {
+    public synchronized void remove(K key) {
         BTreeNode<K, V> root = new BTreeNode<>(dir).readFromDisk(rootId);
         root.remove(key);
         if ((root.size() == 1) && (!(root.isLeaf()))) {
@@ -89,11 +88,9 @@ public class BTree<K extends Comparable<? super K>, V> implements Serializable {
     }
 
     public void writeToDisk() {
-        try {
-            ObjectOutputStream out = new ObjectOutputStream(
-                    new FileOutputStream(dir + "btree"));
+        try(ObjectOutputStream out = new ObjectOutputStream(
+                new FileOutputStream(dir + "btree"))) {
             out.writeObject(this);
-            out.close();
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);

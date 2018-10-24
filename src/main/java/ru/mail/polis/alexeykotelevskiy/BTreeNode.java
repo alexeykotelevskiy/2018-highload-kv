@@ -162,11 +162,9 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
     }
 
     public <K extends Comparable<? super K>, V> BTreeNode<K, V> readFromDisk(int id) {
-        try {
-            ObjectInputStream in = new ObjectInputStream(
-                    new FileInputStream(dir + "b" + id + ".node"));
+        try (ObjectInputStream in = new ObjectInputStream(
+                    new FileInputStream(dir + "b" + id + ".node"))) {
             BTreeNode<K, V> bTreeNode = (BTreeNode<K, V>) (in.readObject());
-            in.close();
             return bTreeNode;
         } catch (Exception e) {
             e.printStackTrace();
@@ -320,7 +318,7 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
         if (value) {
             children = null;
         } else {
-            children = new ArrayList<Integer>(HALF_MAX * 2);
+            children = new ArrayList<>(HALF_MAX * 2);
         }
     }
 
@@ -336,11 +334,9 @@ public class BTreeNode<K extends Comparable<? super K>, V> implements Comparable
     }
 
     public void writeToDisk() {
-        try {
-            ObjectOutputStream out = new ObjectOutputStream(
-                    new FileOutputStream(dir + "b" + id + ".node"));
+        try (ObjectOutputStream out = new ObjectOutputStream(
+                new FileOutputStream(dir + "b" + id + ".node"))){
             out.writeObject(this);
-            out.close();
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);

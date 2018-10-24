@@ -20,7 +20,7 @@ public class IdGenerator {
     /**
      * Return the next available id number.
      */
-    public static int nextId() {
+    public synchronized static int nextId() {
         try {
             int result;
             if (FILE.exists()) {
@@ -30,19 +30,14 @@ public class IdGenerator {
             } else {
                 result = 0;
             }
-            ObjectOutputStream out
-                    = new ObjectOutputStream(new FileOutputStream(FILE));
-            out.writeInt(result + 1);
-            out.close();
-            return result;
+            try(ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(FILE))) {
+                out.writeInt(result + 1);
+                return result;
+            }
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(1);
             return 0;
         }
-    }
-
-    public static void main(String[] args) {
-        System.out.println(nextId());
     }
 }
