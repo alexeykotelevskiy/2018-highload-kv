@@ -22,13 +22,11 @@ public class IdGenerator {
      */
     public synchronized static int nextId() {
         try {
-            int result;
+            int result = 0;
             if (FILE.exists()) {
                 try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(FILE))) {
                     result = in.readInt();
                 }
-            } else {
-                result = 0;
             }
             try(ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(FILE))) {
                 out.writeInt(result + 1);
