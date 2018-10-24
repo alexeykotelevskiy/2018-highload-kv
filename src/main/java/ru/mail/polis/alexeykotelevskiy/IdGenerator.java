@@ -24,9 +24,9 @@ public class IdGenerator {
         try {
             int result;
             if (FILE.exists()) {
-                ObjectInputStream in
-                        = new ObjectInputStream(new FileInputStream(FILE));
-                result = in.readInt();
+                try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(FILE))) {
+                    result = in.readInt();
+                }
             } else {
                 result = 0;
             }
