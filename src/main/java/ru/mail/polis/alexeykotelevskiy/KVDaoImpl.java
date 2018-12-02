@@ -1,32 +1,33 @@
 package ru.mail.polis.alexeykotelevskiy;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.NoSuchElementException;
 import org.jetbrains.annotations.NotNull;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
 import ru.mail.polis.KVDao;
 
-public class KVDaoImpl implements KVDao {
+import java.io.File;
+import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentMap;
 
-    private BTree<SerializeBuffer, ValueNode> bTree;
-    private final String path;
+public class KVDaoImpl implements KVDao {
+    private DB db;
+    private ConcurrentMap map;
 
     public KVDaoImpl(File data) {
-        this.path = data.getPath() + File.separator;
-        String pathRoot = this.path + "btree";
-        if (Files.exists(Paths.get(pathRoot))) {
-            bTree = BTree.readFromDisk(pathRoot);
-        } else {
-            bTree = new BTree<>(data.getPath());
-        }
+        db = DBMaker.fileDB(data.getPath() + File.separator + "database.db")
+                .fileChannelEnable()
+                .make();
+        map = db.treeMap("map")
+                .keySerializer(Serializer.JAVA)
+                .valueSerializer(Serializer.JAVA).createOrOpen();
     }
 
     @NotNull
     @Override
     public byte[] get(@NotNull byte[] key) throws NoSuchElementException {
         SerializeBuffer bKey = new SerializeBuffer(key);
-        ValueNode val = bTree.search(bKey);
+        ValueNode val = (ValueNode) map.get(bKey);
         if (val == null || val.isMilestone()) {
             throw new NoSuchElementException();
         }
@@ -36,26 +37,27 @@ public class KVDaoImpl implements KVDao {
     @Override
     public void upsert(@NotNull byte[] key, @NotNull byte[] value) {
         SerializeBuffer bKey = new SerializeBuffer(key);
-        bTree.add(bKey, new ValueNode(value, System.currentTimeMillis(), false));
+        map.put(bKey, new ValueNode(value, System.currentTimeMillis(), false));
     }
 
     @Override
     public void remove(@NotNull byte[] key) {
         SerializeBuffer bKey = new SerializeBuffer(key);
-        ValueNode val = bTree.search(bKey);
+
+        ValueNode val = (ValueNode) map.get(bKey);
         if (val != null) {
             if (val.isMilestone()) {
-                bTree.remove(bKey);
+                map.remove(bKey);
             } else {
                 val.setMilestone(true);
-                bTree.add(bKey, val);
+                map.put(bKey, val);
             }
         }
     }
 
     public ValueNode getWithInfo(byte[] key) throws NoSuchElementException {
         SerializeBuffer bKey = new SerializeBuffer(key);
-        ValueNode node = bTree.search(bKey);
+        ValueNode node = (ValueNode) map.get(bKey);
         if (node == null) {
             throw new NoSuchElementException();
         }
@@ -64,6 +66,6 @@ public class KVDaoImpl implements KVDao {
 
     @Override
     public void close() {
-        bTree = null;
+        db.close();
     }
 }

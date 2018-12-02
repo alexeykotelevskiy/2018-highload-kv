@@ -4,15 +4,20 @@ import one.nio.http.*;
 import one.nio.net.ConnectionString;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
+
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class KvServiceImpl extends HttpServer implements KVService {
     private final KVDaoImpl kvDao;
     private Map<String, HttpClient> cluster = new HashMap<>();
     private static final String API_POINT = "/v0/entity";
     private final static String NEED_REPL_HEADER = "X-Need-Repl";
-    private final static String TIMESTAMP_HEADER = "X-Timestamp";
+    final static String TIMESTAMP_HEADER = "X-Timestamp";
+    private static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     public KvServiceImpl(int port, KVDao kvDao, Set<String> topology) throws IOException {
         super(HttpServerConfigFactory.create(port));
@@ -37,30 +42,31 @@ public class KvServiceImpl extends HttpServer implements KVService {
         return nodes;
     }
 
-    private static String getHeaderValue(String header) {
-        return header.split(":")[1].trim();
-    }
-
     private String makePath(String host, byte[] key) {
         return host + "?id=" + (new String(key));
     }
 
-    private Response merge(List<KeyInfo> ans, AckFrom ackFrom) {
+    private Response merge(List<Future<KeyInfo>> ans, AckFrom ackFrom) {
         KeyInfo lastUpdate = null;
-
-        if (ans.size() < ackFrom.getAck()) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
-
-        for (KeyInfo keyInfo : ans) {
-            if (keyInfo.getState() == State.EXIST) {
-                if (lastUpdate == null || lastUpdate.getTimestamp() > keyInfo.getTimestamp()) {
-                    lastUpdate = keyInfo;
+        int count = 0;
+        for (Future<KeyInfo> keyInfoFuture : ans) {
+            try {
+                KeyInfo keyInfo = keyInfoFuture.get();
+                count++;
+                if (keyInfo.getState() == State.EXIST) {
+                    if (lastUpdate == null || lastUpdate.getTimestamp() > keyInfo.getTimestamp()) {
+                        lastUpdate = keyInfo;
+                    }
                 }
+                if (keyInfo.getState() == State.REMOVED) {
+                    return new Response(Response.NOT_FOUND, Response.EMPTY);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            if (keyInfo.getState() == State.REMOVED) {
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            }
+        }
+        if (count < ackFrom.getAck()) {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
         if (lastUpdate != null)
             return new Response(Response.OK, lastUpdate.getValue());
@@ -86,39 +92,23 @@ public class KvServiceImpl extends HttpServer implements KVService {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
         }
-        List<KeyInfo> ansList = new LinkedList<>();
+        List<Future<KeyInfo>> ansList = new LinkedList<>();
         for (HttpClient client : nodes) {
             if (client == null) {
-                try {
-                    ValueNode node = kvDao.getWithInfo(key);
-                    KeyInfo keyInfo = new KeyInfo(node.isMilestone() ? State.REMOVED : State.EXIST,
-                            node.getTimestamp(),
-                            node.getVal());
-                    ansList.add(keyInfo);
-                } catch (NoSuchElementException e) {
-                    ansList.add(new KeyInfo(State.NONE, 0, null));
-                }
+                Future<KeyInfo> keyInfoFuture = threadPool.submit(() -> {
+                    try {
+                        ValueNode node = kvDao.getWithInfo(key);
+                        return new KeyInfo(node.isMilestone() ? State.REMOVED : State.EXIST,
+                                node.getTimestamp(),
+                                node.getVal());
+                    } catch (NoSuchElementException e) {
+                        return new KeyInfo(State.NONE, 0, null);
+                    }
+                });
+                ansList.add(keyInfoFuture);
             } else {
-                try {
-                    Response resp = client.get(makePath(API_POINT, key), NEED_REPL_HEADER + ": 1");
-                    if (resp.getStatus() == 200) {
-                        ansList.add(new KeyInfo(State.EXIST,
-                                Long.parseLong(getHeaderValue(resp.getHeader(TIMESTAMP_HEADER))),
-                                resp.getBody()));
-                    }
-                    if (resp.getStatus() == 504) {
-                        ansList.add(new KeyInfo(State.REMOVED,
-                                Long.parseLong(getHeaderValue(resp.getHeader(TIMESTAMP_HEADER))),
-                                resp.getBody()));
-                    }
-                    if (resp.getStatus() == 404) {
-                        ansList.add(new KeyInfo(State.NONE,
-                                Long.parseLong(getHeaderValue(resp.getHeader(TIMESTAMP_HEADER))),
-                                resp.getBody()));
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                KeyInfoTask task = new KeyInfoTask(makePath(API_POINT, key), client, NEED_REPL_HEADER + ": 1");
+                ansList.add(threadPool.submit(task));
             }
         }
         return merge(ansList, ackFrom);
@@ -139,18 +129,36 @@ public class KvServiceImpl extends HttpServer implements KVService {
             kvDao.upsert(key, value);
             return new Response(Response.CREATED, Response.EMPTY);
         }
+        LinkedList<Future<Integer>> ansList = new LinkedList<>();
         for (HttpClient client : nodes) {
             if (client == null) {
-                kvDao.upsert(key, value);
-                ack++;
+                ansList.add(threadPool.submit(() -> {
+                    kvDao.upsert(key, value);
+                    return 201;
+                }));
             } else {
                 try {
-                    if (client.put(makePath(API_POINT, key), value, NEED_REPL_HEADER + ": 1").getStatus() == 201) {
-                        ack++;
-                    }
+                    ansList.add(threadPool.submit(() -> {
+                        try {
+                            return client.put(makePath(API_POINT, key), value, NEED_REPL_HEADER + ": 1").getStatus();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            return null;
+                        }
+                    }));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+        }
+        for (Future<Integer> result : ansList) {
+            try {
+                Integer status = result.get();
+                if (status != null && status == 201) {
+                    ack++;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
         return checkAck(ackFrom, ack, Response.CREATED);
@@ -163,18 +171,36 @@ public class KvServiceImpl extends HttpServer implements KVService {
             kvDao.remove(key);
             return new Response(Response.ACCEPTED, Response.EMPTY);
         }
+        LinkedList<Future<Integer>> ansList = new LinkedList<>();
         for (HttpClient client : nodes) {
             if (client == null) {
-                kvDao.remove(key);
-                ack++;
+                ansList.add(threadPool.submit(() -> {
+                    kvDao.remove(key);
+                    return 202;
+                }));
             } else {
                 try {
-                    if (client.delete(makePath(API_POINT, key), NEED_REPL_HEADER + ": 1").getStatus() == 202) {
-                        ack++;
-                    }
+                    ansList.add(threadPool.submit(() -> {
+                        try {
+                            return client.delete(makePath(API_POINT, key), NEED_REPL_HEADER + ": 1").getStatus();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            return null;
+                        }
+                    }));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+        }
+        for (Future<Integer> result : ansList) {
+            try {
+                Integer status = result.get();
+                if (status != null && status == 202) {
+                    ack++;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
         return checkAck(ackFrom, ack, Response.ACCEPTED);

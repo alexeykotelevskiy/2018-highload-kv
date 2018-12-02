@@ -36,4 +36,9 @@ public class SerializeBuffer implements Externalizable, Comparable<SerializeBuff
     public int compareTo(@NotNull SerializeBuffer o) {
         return buff.compareTo(o.getBuff());
     }
+
+    @Override
+    public int hashCode() {
+        return buff.hashCode();
+    }
 }

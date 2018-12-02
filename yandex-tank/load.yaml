@@ -1,0 +1,11 @@
+phantom:
+  address: 192.168.99.1:8080
+  ammofile: ammo_get2_3.txt
+  load_profile:
+    load_type: rps
+    schedule: const(500, 1m)
+  instances: 1
+console:
+  enabled: true
+telegraf:
+  enabled: false
